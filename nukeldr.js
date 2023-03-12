@@ -7,7 +7,13 @@ app.get('/nukeldr', (req, res) => {
 });
 
 const axios = require('axios');
-const { token_Solscan, channelAtlas, channelPolis, guild, token_bot } = require('./config.json');
+const { token_Solscan,
+  channelAtlas,
+  channelPolis,
+  guild,
+  token_bot,
+  walletTBB,
+  walletDAO } = require('./config.json');
 
 const { Client, Events, GatewayIntentBits } = require('discord.js');
 
@@ -18,57 +24,100 @@ const client = new Client({
   GatewayIntentBits.MessageContent]
 });
 
-client.once(Events.ClientReady, c => {
-  console.log(`Ready! Logged in as ${c.user.tag}`);
+client.once(Events.ClientReady, async c => {
 
-  async function actualizaWallet() {
+  console.log(`¡Ready! Logged in as ${c.user.tag}`);
 
-    const server = await client.guilds.fetch(guild);
-    const Atlas = await server.channels.fetch(channelAtlas);
-    const Polis = await server.channels.fetch(channelPolis);
+  const server = await client.guilds.fetch(guild);
+  const Atlas = await server.channels.fetch(channelAtlas);
+  const Polis = await server.channels.fetch(channelPolis);
+  
+  setInterval(async () => {
 
-    try {
+    let atlasTBB = await buscaATLAS(walletTBB, token_Solscan);
+    let atlasDAO = await buscaATLAS(walletDAO, token_Solscan);
+    let polisTBB = await buscaPOLIS(walletTBB, token_Solscan);
+    let polisDAO = await buscaPOLIS(walletDAO, token_Solscan);
 
-      const response = await axios.get('https://public-api.solscan.io/account/tokens?account=4KjxgEds5XEG1wuLZQYGqY87w9KuxpRjkBF65xn8rHQt', {
-        headers: {
-          'accept': 'application/json',
-          'token': `${token_Solscan}`
-        }
-      });
-
-      let json = await JSON.parse(JSON.stringify(response.data));
-      // console.log(json);
-
-      for (const i in json) {
-
-        let token = await json[i].tokenAddress;
-
-        if (token === 'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx') {
-          //Declaraciones ejecutadas cuando el resultado de expresiÃ³n coincide con el valor1
-          let montoAtlas = await json[i].tokenAmount.uiAmount;
-          let montoAtlas2 = convertir(montoAtlas);
-
-          await Atlas.setName(`👛 | Atlas: ${montoAtlas2}`);
-
-        } else if (token === 'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk') {
-
-          //Declaraciones ejecutadas cuando el resultado de expresiÃ³n coincide con el valor2
-          let montoPolis = await json[i].tokenAmount.uiAmount;
-          let montoPolis2 = convertir(montoPolis);
-          Polis.setName(`👛 | Polis: ${montoPolis2}`);
-
-        }
-      }
-
-    } catch (ex) {
-      response = null;
-      console.log(ex);
+    if(!atlasTBB){
+      atlasTBB = 0;
+    } if (!atlasDAO){
+      atlasDAO = 0;
+    } if (!polisTBB){
+      polisTBB = 0;
+    } if (!polisDAO){
+      polisDAO = 0;
     }
-  }
 
-  setInterval(actualizaWallet, 300000);
+    let totalAtlas = await convertir(atlasDAO + atlasTBB);
+    let totalPolis = await convertir(polisDAO + polisTBB);
 
+    Atlas.setName(`👛 | Atlas: ${totalAtlas}`);
+    Polis.setName(`👛 | Polis: ${totalPolis}`);
+
+  }, 300000);
 });
+
+async function buscaATLAS(wallet, token_Solscan) {
+
+  try {
+
+    const response = await axios.get(wallet, {
+      headers: {
+        'accept': 'application/json',
+        'token': `${token_Solscan}`
+      }
+    });
+
+    let json = await JSON.parse(JSON.stringify(response.data));
+
+    for (const i in json) {
+
+      let token = await json[i].tokenAddress;
+
+      if (token === 'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx') {
+        
+        let montoAtlas = await json[i].tokenAmount.uiAmount;
+
+        return montoAtlas;
+      } 
+    }
+
+  } catch (ex) {
+    response = null;
+    console.log(ex);
+  }
+}
+
+async function buscaPOLIS(wallet, token_Solscan) {
+
+  try {
+
+    const response = await axios.get(wallet, {
+      headers: {
+        'accept': 'application/json',
+        'token': `${token_Solscan}`
+      }
+    });
+
+    let json = await JSON.parse(JSON.stringify(response.data));
+
+    for (const i in json) {
+
+      let token = await json[i].tokenAddress;
+
+      if (token === 'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk') {
+
+        let montoPolis = await json[i].tokenAmount.uiAmount;
+        
+        return montoPolis;
+      }
+    }
+  } catch (ex) {
+    response = null;
+    console.log(ex);
+  }
+}
 
 function convertir(num) {
   let resul = num.toFixed(3);
@@ -76,9 +125,8 @@ function convertir(num) {
   return convertido;
 }
 
-// Log in to Discord with your client's token
 client.login(token_bot);
 
 app.listen(4500, () => {
   console.log('iniciado');
-  });
+});
