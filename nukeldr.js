@@ -7,13 +7,15 @@ app.get('/nukeldr', (req, res) => {
 });
 
 const axios = require('axios');
-const { token_Solscan,
+const { token_Solscan_aristi,
+  token_Solscan_carmo,
   channelAtlas,
   channelPolis,
   guild,
   token_bot,
   walletTBB,
-  walletDAO } = require('./config.json');
+  walletDAO_ATLAS,
+  walletDAO_POLIS } = require('./config.json');
 
 const { Client, Events, GatewayIntentBits } = require('discord.js');
 
@@ -24,6 +26,11 @@ const client = new Client({
   GatewayIntentBits.MessageContent]
 });
 
+let AtlasTBB;
+let PolisTBB;
+let AtlasDAO;
+let PolisDAO;
+
 client.once(Events.ClientReady, async c => {
 
   console.log(`¡Ready! Logged in as ${c.user.tag}`);
@@ -31,31 +38,22 @@ client.once(Events.ClientReady, async c => {
   const server = await client.guilds.fetch(guild);
   const Atlas = await server.channels.fetch(channelAtlas);
   const Polis = await server.channels.fetch(channelPolis);
-  
-  setInterval(async () => {
 
-    let atlasTBB = await buscaATLAS(walletTBB, token_Solscan);
-    let atlasDAO = await buscaATLAS(walletDAO, token_Solscan);
-    let polisTBB = await buscaPOLIS(walletTBB, token_Solscan);
-    let polisDAO = await buscaPOLIS(walletDAO, token_Solscan);
+  setInterval( async () => {
 
-    if(!atlasTBB){
-      atlasTBB = 0;
-    } if (!atlasDAO){
-      atlasDAO = 0;
-    } if (!polisTBB){
-      polisTBB = 0;
-    } if (!polisDAO){
-      polisDAO = 0;
-    }
+  await buscaATLAS(walletTBB, token_Solscan_aristi);
+  await buscaATLAS(walletDAO_ATLAS, token_Solscan_aristi);
+  await buscaATLAS(walletDAO_POLIS, token_Solscan_carmo);
 
-    let totalAtlas = await convertir(atlasDAO + atlasTBB);
-    let totalPolis = await convertir(polisDAO + polisTBB);
+  let totalAtlas = convertir(AtlasTBB + AtlasDAO);
+  let totalPolis = convertir(PolisTBB + PolisDAO);
 
-    Atlas.setName(`👛 | Atlas: ${totalAtlas}`);
-    Polis.setName(`👛 | Polis: ${totalPolis}`);
+  Atlas.setName(`👛 | Atlas: ${totalAtlas}`);
+  Polis.setName(`👛 | Polis: ${totalPolis}`);
 
-  }, 300000);
+  console.log(totalAtlas +" "+totalPolis);
+
+  }, 7500000);
 });
 
 async function buscaATLAS(wallet, token_Solscan) {
@@ -69,50 +67,49 @@ async function buscaATLAS(wallet, token_Solscan) {
       }
     });
 
-    let json = await JSON.parse(JSON.stringify(response.data));
+    if (response.status === 200) {
+      console.log('La respuesta es 200');
+      let json = await JSON.parse(JSON.stringify(response.data));
 
-    for (const i in json) {
+      for (const i in json) {
 
-      let token = await json[i].tokenAddress;
+        let token = await json[i].tokenAddress;
 
-      if (token === 'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx') {
-        
-        let montoAtlas = await json[i].tokenAmount.uiAmount;
+        if (token === 'ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx') {
 
-        return montoAtlas;
-      } 
+          let montoAtlas = await json[i].tokenAmount.uiAmount;
+
+          if (wallet == walletTBB) {
+
+            AtlasTBB = montoAtlas;
+
+          } else if (wallet == walletDAO_ATLAS) {
+
+            AtlasDAO = montoAtlas;
+
+          }
+
+        }
+        if (token === 'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk') {
+
+          let montoPolis = await json[i].tokenAmount.uiAmount;
+
+          if (wallet == walletTBB) {
+
+            PolisTBB = montoPolis;
+            
+          } else if (wallet == walletDAO_POLIS) {
+
+            PolisDAO = montoPolis;
+          }
+
+        }
+      }
+    } else {
+      console.log("El servidor tardó: "+ response.status);
     }
 
-  } catch (ex) {
-    response = null;
-    console.log(ex);
-  }
-}
 
-async function buscaPOLIS(wallet, token_Solscan) {
-
-  try {
-
-    const response = await axios.get(wallet, {
-      headers: {
-        'accept': 'application/json',
-        'token': `${token_Solscan}`
-      }
-    });
-
-    let json = await JSON.parse(JSON.stringify(response.data));
-
-    for (const i in json) {
-
-      let token = await json[i].tokenAddress;
-
-      if (token === 'poLisWXnNRwC6oBu1vHiuKQzFjGL4XDSu4g9qjz9qVk') {
-
-        let montoPolis = await json[i].tokenAmount.uiAmount;
-        
-        return montoPolis;
-      }
-    }
   } catch (ex) {
     response = null;
     console.log(ex);
